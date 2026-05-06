@@ -1,0 +1,51 @@
+name: Build FNF Linux
+
+on:
+  push:
+    branches: [ preview/camera-editor ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libvlc-dev libvlccore-dev \
+            libx11-dev libxext-dev libxi-dev \
+            libxrandr-dev libxinerama-dev \
+            libxcursor-dev libxfixes-dev \
+            libgl1-mesa-dev libegl1-mesa-dev \
+            libopenal-dev libvorbis-dev libogg-dev \
+            libpng-dev libjpeg-dev zlib1g-dev \
+            libdbus-1-dev wayland-scanner \
+            gcc g++ cmake
+
+      - name: Install Haxe
+        uses: krdlab/setup-haxe@v1
+        with:
+          haxe-version: 4.3.4
+
+      - name: Install haxelib dependencies
+        run: |
+          haxelib --global install hmm
+          haxelib --global run hmm setup
+          hmm install
+
+      - name: Build
+        run: haxelib run lime build linux -debug
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FNF-Linux-Build
+          path: export/release/linux/bin/
+          retention-days: 7

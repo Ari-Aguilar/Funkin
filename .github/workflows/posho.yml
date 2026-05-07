@@ -1,19 +1,25 @@
 name: Build FNF Linux
 
 on:
-  push:
-    branches: [ preview/camera-editor ]
   workflow_dispatch:
+    inputs:
+      save-artifact:
+        type: boolean
+        default: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Install Haxe
+        uses: krdlab/setup-haxe@v1
+        with:
+          haxe-version: 4.3.4
 
       - name: Install system dependencies
         run: |
@@ -21,31 +27,31 @@ jobs:
           sudo apt-get install -y \
             libvlc-dev libvlccore-dev \
             libx11-dev libxext-dev libxi-dev \
-            libxrandr-dev libxinerama-dev \
-            libxcursor-dev libxfixes-dev \
-            libgl1-mesa-dev libegl1-mesa-dev \
-            libopenal-dev libvorbis-dev libogg-dev \
-            libpng-dev libjpeg-dev zlib1g-dev \
+            libxrandr-dev libxcursor-dev \
+            libgl1-mesa-dev libopenal-dev \
             libdbus-1-dev wayland-scanner \
-            gcc g++ cmake
+            gcc g++
 
-      - name: Install Haxe
-        uses: krdlab/setup-haxe@v1
-        with:
-          haxe-version: 4.3.4
-
-      - name: Install haxelib dependencies
+      - name: Install hmm and dependencies
         run: |
-          haxelib --global install hmm
+          haxelib --global git haxelib https://github.com/FunkinCrew/haxelib.git
+          haxelib --global git hmm https://github.com/FunkinCrew/hmm.git
           haxelib --global run hmm setup
-          hmm install
+          haxelib --global run hmm install -q
+          pushd .haxelib/hxcpp/git/tools/hxcpp && haxe compile.hxml && popd
 
-      - name: Build
-        run: haxelib run lime build linux -debug
+      - name: Setup and rebuild lime
+        run: |
+          haxelib --always run lime setup
+          haxelib run lime rebuild cpp -64
+
+      - name: Build game
+        run: |
+          haxelib run lime build linux -v -release
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FNF-Linux-Build
+          name: FNF-Linux
           path: export/release/linux/bin/
           retention-days: 7

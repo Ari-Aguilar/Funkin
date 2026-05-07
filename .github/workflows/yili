@@ -1,0 +1,57 @@
+name: Build FNF Linu
+
+on:
+  workflow_dispatch:
+    inputs:
+      save-artifact:
+        type: boolean
+        default: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Haxe
+        uses: krdlab/setup-haxe@v1
+        with:
+          haxe-version: 4.3.4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libvlc-dev libvlccore-dev \
+            libx11-dev libxext-dev libxi-dev \
+            libxrandr-dev libxcursor-dev \
+            libgl1-mesa-dev libopenal-dev \
+            libdbus-1-dev libwayland-dev \
+            gcc g++
+
+      - name: Install hmm and dependencies
+        run: |
+          haxelib --global git haxelib https://github.com/FunkinCrew/haxelib.git
+          haxelib --global git hmm https://github.com/FunkinCrew/hmm.git
+          haxelib --global run hmm setup
+          haxelib --global run hmm install -q
+          pushd .haxelib/hxcpp/git/tools/hxcpp && haxe compile.hxml && popd
+
+      - name: Setup and rebuild lime
+        run: |
+          haxelib --always run lime setup
+          haxelib run lime rebuild cpp -64
+
+      - name: Build game
+        run: |
+          haxelib run lime build linux -v -release
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FNF-Linux
+          path: export/release/linux/bin/
+          retention-days: 7

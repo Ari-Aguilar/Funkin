@@ -29,7 +29,7 @@ jobs:
             libxrandr-dev libxcursor-dev \
             libgl1-mesa-dev libopenal-dev \
             libdbus-1-dev libwayland-dev \
-            gcc g++ make cmake
+            gcc g++ make cmake neko
 
       - name: Install hmm and haxe dependencies
         run: |
@@ -44,21 +44,47 @@ jobs:
           haxe compile.hxml
           popd
 
-      - name: Rebuild lime ndll  # <-- SEPARADO y DESPUÉS de hxcpp
+      - name: Build lime ndll directly (bypass lime CLI)
         run: |
-          haxelib --always run lime setup
-          haxelib run lime rebuild linux -64  # "linux" en vez de "cpp"
+          LIME_PATH=$(haxelib path lime | head -1)
+          echo "Lime path: $LIME_PATH"
+          cd "$LIME_PATH"
 
-      - name: Verify lime.ndll exists  # paso de diagnóstico, puedes quitarlo después
+          # Compilar el ndll directamente con haxe+hxcpp sin invocar lime
+          haxe \
+            -cp project/src \
+            -lib hxcpp \
+            --macro include('lime') \
+            -D HXCPP_M64 \
+            -D lime \
+            -D lime-native \
+            -cpp ndll/Linux64 \
+            project/src/Entry.hx || true
+
+          # Alternativa: usar el build.xml de lime directamente con hxcpp
+          if [ ! -f "ndll/Linux64/lime.ndll" ]; then
+            echo "Trying hxcpp build.xml approach..."
+            cd project
+            haxelib run hxcpp Build.xml -Dlinux -DHXCPP_M64
+            cd ..
+          fi
+
+          # Verificar resultado
+          find . -name "*.ndll" -o -name "lime.so" 2>/dev/null
+
+      - name: Setup lime (now that ndll exists)
         run: |
-          find .haxelib/lime -name "*.ndll" -o -name "*.so" | head -20
+          LIME_PATH=$(haxelib path lime | head -1)
+          # Copiar ndll al lugar donde lime lo busca si hace falta
+          ls "$LIME_PATH/ndll/Linux64/" || true
+          haxelib --always run lime setup
 
       - name: Build game
         run: |
           haxelib run lime build linux -v -release
 
       - name: Upload artifact
-        if: ${{ inputs.save-artifact }}  # respeta el input que definiste
+        if: ${{ inputs.save-artifact }}
         uses: actions/upload-artifact@v4
         with:
           name: FNF-Linux

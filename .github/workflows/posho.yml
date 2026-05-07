@@ -1,4 +1,4 @@
-name: Build FNF Linux
+name: Build FNF Linu
 
 on:
   workflow_dispatch:

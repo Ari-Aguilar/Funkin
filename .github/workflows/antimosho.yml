@@ -1,5 +1,4 @@
-name: Build FNF Linu
-
+name: Build FNF Linux
 on:
   workflow_dispatch:
     inputs:
@@ -30,26 +29,36 @@ jobs:
             libxrandr-dev libxcursor-dev \
             libgl1-mesa-dev libopenal-dev \
             libdbus-1-dev libwayland-dev \
-            gcc g++
+            gcc g++ make cmake
 
-      - name: Install hmm and dependencies
+      - name: Install hmm and haxe dependencies
         run: |
           haxelib --global git haxelib https://github.com/FunkinCrew/haxelib.git
           haxelib --global git hmm https://github.com/FunkinCrew/hmm.git
           haxelib --global run hmm setup
           haxelib --global run hmm install -q
-          pushd .haxelib/hxcpp/git/tools/hxcpp && haxe compile.hxml && popd
 
-      - name: Setup and rebuild lime
+      - name: Compile hxcpp tools
+        run: |
+          pushd .haxelib/hxcpp/git/tools/hxcpp
+          haxe compile.hxml
+          popd
+
+      - name: Rebuild lime ndll  # <-- SEPARADO y DESPUÉS de hxcpp
         run: |
           haxelib --always run lime setup
-          haxelib run lime rebuild cpp -64
+          haxelib run lime rebuild linux -64  # "linux" en vez de "cpp"
+
+      - name: Verify lime.ndll exists  # paso de diagnóstico, puedes quitarlo después
+        run: |
+          find .haxelib/lime -name "*.ndll" -o -name "*.so" | head -20
 
       - name: Build game
         run: |
           haxelib run lime build linux -v -release
 
       - name: Upload artifact
+        if: ${{ inputs.save-artifact }}  # respeta el input que definiste
         uses: actions/upload-artifact@v4
         with:
           name: FNF-Linux
